@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>LRT Radio for Meta Ray-Ban Display</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --panel: rgba(18, 18, 18, 0.86);
+      --text: #f5f5f5;
+      --muted: #a8a8a8;
+      --border: rgba(255,255,255,0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    main {
+      width: min(92vw, 620px);
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: var(--panel);
+      text-align: center;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.5);
+    }
+
+    .station {
+      font-size: clamp(28px, 8vw, 54px);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: clamp(14px, 3.2vw, 22px);
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .status {
+      min-height: 36px;
+      font-size: clamp(18px, 4.5vw, 30px);
+      margin-bottom: 22px;
+      font-weight: 650;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 16px 28px;
+      background: #fff;
+      color: #000;
+      font-size: clamp(18px, 4.5vw, 28px);
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+    }
+
+    .hint {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: clamp(12px, 3vw, 17px);
+      line-height: 1.35;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      vertical-align: middle;
+      opacity: 0.85;
+      animation: pulse 1.2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.8); opacity: 0.45; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main aria-label="LRT Radio player">
+    <div class="station">LRT RADIJAS</div>
+    <div class="subtitle">Live webstream for Meta Ray-Ban Display</div>
+    <div id="status" class="status">Ready</div>
+
+    <div class="buttons">
+      <button id="playBtn">Play</button>
+      <button id="stopBtn" class="secondary">Stop</button>
+    </div>
+
+    <div class="hint">Tap / select Play. Autoplay is usually blocked until user action, because browsers enjoy making everyone earn their audio.</div>
+  </main>
+
+  <audio id="radio" preload="none" playsinline></audio>
+
+  <script>
+    const STREAMS = [
+      // Current HLS stream reported for LRT Radijas.
+      "https://stream-live.lrt.lt/radio_radijas/lrt_radijas.m3u8",
+      // Alternate high-quality stream reported by radio directories.
+      "https://stream-audio.lrt.lt/radijas/320k/lrt_radijas.m3u8",
+      // Legacy non-HLS fallback. May be blocked on HTTPS pages because it is HTTP.
+      "http://lrt-cast.lrt.lt:8000/lrt_radijas"
+    ];
+
+    const audio = document.getElementById("radio");
+    const statusEl = document.getElementById("status");
+    const playBtn = document.getElementById("playBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    let streamIndex = 0;
+
+    function setStatus(text, active = false) {
+      statusEl.innerHTML = active ? `<span class="pulse"></span>${text}` : text;
+    }
+
+    async function playCurrentStream() {
+      const url = STREAMS[streamIndex];
+      setStatus("Connecting…");
+      audio.src = url;
+
+      try {
+        await audio.play();
+        setStatus("Playing live", true);
+      } catch (err) {
+        console.warn("Stream failed", url, err);
+        if (streamIndex < STREAMS.length - 1) {
+          streamIndex += 1;
+          return playCurrentStream();
+        }
+        setStatus("Could not play stream");
+      }
+    }
+
+    playBtn.addEventListener("click", () => {
+      streamIndex = 0;
+      playCurrentStream();
+    });
+
+    stopBtn.addEventListener("click", () => {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      setStatus("Stopped");
+    });
+
+    audio.addEventListener("playing", () => setStatus("Playing live", true));
+    audio.addEventListener("waiting", () => setStatus("Buffering…"));
+    audio.addEventListener("error", () => {
+      if (streamIndex < STREAMS.length - 1) {
+        streamIndex += 1;
+        playCurrentStream();
+      } else {
+        setStatus("Stream error");
+      }
+    });
+
+    // Keyboard fallback for desktop testing and possible external input mapping.
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "Space" || event.code === "Enter") {
+        event.preventDefault();
+        if (audio.paused) playCurrentStream();
+        else stopBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>
