@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>LRT Radio for Meta Ray-Ban Display</title>
+
   <style>
     :root {
       --bg: #050505;
@@ -12,6 +13,7 @@
       --text: #f5f5f5;
       --muted: #a8a8a8;
       --border: rgba(255,255,255,0.18);
+      --green: #00ff66;
     }
 
     * { box-sizing: border-box; }
@@ -44,6 +46,23 @@
       background: var(--panel);
       text-align: center;
       box-shadow: 0 18px 60px rgba(0,0,0,0.5);
+      transition: all 0.6s ease;
+    }
+
+    main.minimized {
+      width: 12px !important;
+      height: 12px !important;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      background: var(--green) !important;
+      border: none !important;
+      box-shadow: 0 0 12px var(--green);
+      overflow: hidden;
+      color: transparent !important;
+    }
+
+    main.minimized * {
+      display: none !important;
     }
 
     .station {
@@ -116,8 +135,9 @@
     }
   </style>
 </head>
+
 <body>
-  <main aria-label="LRT Radio player">
+  <main id="app" aria-label="LRT Radio player">
     <div class="station">LRT RADIJAS</div>
     <div class="subtitle">Live webstream for Meta Ray-Ban Display</div>
     <div id="status" class="status">Ready</div>
@@ -127,33 +147,48 @@
       <button id="stopBtn" class="secondary">Stop</button>
     </div>
 
-    <div class="hint">Tap / select Play. Autoplay is usually blocked until user action, because browsers enjoy making everyone earn their audio.</div>
+    <div class="hint">
+      Tap / select Play. After 10 seconds the screen becomes a small green dot.
+    </div>
   </main>
 
   <audio id="radio" preload="none" playsinline></audio>
 
   <script>
     const STREAMS = [
-      // Current HLS stream reported for LRT Radijas.
       "https://stream-live.lrt.lt/radio_radijas/lrt_radijas.m3u8",
-      // Alternate high-quality stream reported by radio directories.
       "https://stream-audio.lrt.lt/radijas/320k/lrt_radijas.m3u8",
-      // Legacy non-HLS fallback. May be blocked on HTTPS pages because it is HTTP.
       "http://lrt-cast.lrt.lt:8000/lrt_radijas"
     ];
 
+    const app = document.getElementById("app");
     const audio = document.getElementById("radio");
     const statusEl = document.getElementById("status");
     const playBtn = document.getElementById("playBtn");
     const stopBtn = document.getElementById("stopBtn");
 
     let streamIndex = 0;
+    let minimizeTimer = null;
 
     function setStatus(text, active = false) {
       statusEl.innerHTML = active ? `<span class="pulse"></span>${text}` : text;
     }
 
+    function minimizeAfterDelay() {
+      clearTimeout(minimizeTimer);
+      minimizeTimer = setTimeout(() => {
+        app.classList.add("minimized");
+      }, 10000);
+    }
+
+    function restoreUI() {
+      app.classList.remove("minimized");
+      clearTimeout(minimizeTimer);
+    }
+
     async function playCurrentStream() {
+      restoreUI();
+
       const url = STREAMS[streamIndex];
       setStatus("Connecting…");
       audio.src = url;
@@ -161,12 +196,15 @@
       try {
         await audio.play();
         setStatus("Playing live", true);
+        minimizeAfterDelay();
       } catch (err) {
         console.warn("Stream failed", url, err);
+
         if (streamIndex < STREAMS.length - 1) {
           streamIndex += 1;
           return playCurrentStream();
         }
+
         setStatus("Could not play stream");
       }
     }
@@ -177,15 +215,26 @@
     });
 
     stopBtn.addEventListener("click", () => {
+      restoreUI();
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
       setStatus("Stopped");
     });
 
-    audio.addEventListener("playing", () => setStatus("Playing live", true));
-    audio.addEventListener("waiting", () => setStatus("Buffering…"));
+    audio.addEventListener("playing", () => {
+      setStatus("Playing live", true);
+      minimizeAfterDelay();
+    });
+
+    audio.addEventListener("waiting", () => {
+      restoreUI();
+      setStatus("Buffering…");
+    });
+
     audio.addEventListener("error", () => {
+      restoreUI();
+
       if (streamIndex < STREAMS.length - 1) {
         streamIndex += 1;
         playCurrentStream();
@@ -194,12 +243,23 @@
       }
     });
 
-    // Keyboard fallback for desktop testing and possible external input mapping.
     window.addEventListener("keydown", (event) => {
       if (event.code === "Space" || event.code === "Enter") {
         event.preventDefault();
-        if (audio.paused) playCurrentStream();
-        else stopBtn.click();
+
+        if (audio.paused) {
+          streamIndex = 0;
+          playCurrentStream();
+        } else {
+          stopBtn.click();
+        }
+      }
+    });
+
+    document.body.addEventListener("click", () => {
+      if (app.classList.contains("minimized")) {
+        restoreUI();
+        minimizeAfterDelay();
       }
     });
   </script>
