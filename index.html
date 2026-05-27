@@ -97,10 +97,10 @@
       appearance: none;
       border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 16px 28px;
+      padding: 16px 24px;
       background: #fff;
       color: #000;
-      font-size: clamp(18px, 4.5vw, 28px);
+      font-size: clamp(15px, 4vw, 24px);
       font-weight: 750;
       cursor: pointer;
     }
@@ -115,6 +115,14 @@
       color: var(--muted);
       font-size: clamp(12px, 3vw, 17px);
       line-height: 1.35;
+    }
+
+    .credit {
+      margin-top: 14px;
+      color: var(--green);
+      font-size: clamp(12px, 2.8vw, 16px);
+      font-weight: 650;
+      letter-spacing: 0.02em;
     }
 
     .pulse {
@@ -145,10 +153,15 @@
     <div class="buttons">
       <button id="playBtn">Play</button>
       <button id="stopBtn" class="secondary">Stop</button>
+      <button id="dotBtn" class="secondary">Žalias taškas</button>
     </div>
 
     <div class="hint">
-      Tap / select Play. After 10 seconds the screen becomes a small green dot.
+      Tap Play to start. Tap Žalias taškas to hide the screen.
+    </div>
+
+    <div class="credit">
+      Created by Rokas
     </div>
   </main>
 
@@ -166,6 +179,7 @@
     const statusEl = document.getElementById("status");
     const playBtn = document.getElementById("playBtn");
     const stopBtn = document.getElementById("stopBtn");
+    const dotBtn = document.getElementById("dotBtn");
 
     let streamIndex = 0;
     let minimizeTimer = null;
@@ -222,6 +236,10 @@
       setStatus("Stopped");
     });
 
+    dotBtn.addEventListener("click", () => {
+      app.classList.add("minimized");
+    });
+
     audio.addEventListener("playing", () => {
       setStatus("Playing live", true);
       minimizeAfterDelay();
@@ -259,7 +277,6 @@
     document.body.addEventListener("click", () => {
       if (app.classList.contains("minimized")) {
         restoreUI();
-        minimizeAfterDelay();
       }
     });
   </script>
